@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DashBoard</title>
+    
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+
+                        gray: {
+                            50: '#f9fafb',
+                            100: '#f3f4f6',
+                            200: '#e5e7eb',
+                            300: '#d1d5db',
+                            400: '#9ca3af',
+                            500: '#6b7280',
+                            600: '#4b5563',
+                            700: '#374151',
+                            800: '#1f2937',
+                            900: '#111827', // 主背景色
+                            950: '#030712', 
+                        },
+
+                        primary: {
+                            50: '#fafafa',
+                            100: '#f4f4f5',
+                            200: '#e4e4e7',
+                            300: '#d4d4d8',
+                            400: '#a1a1aa', // 高亮文本色
+                            500: '#71717a', // 按钮默认背景
+                            600: '#52525b', // 按钮悬停
+                            700: '#3f3f46',
+                            800: '#27272a',
+                            900: '#18181b',
+                            950: '#09090b',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111827; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #374151; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563; 
+        }
+        body {
+            background-color: #111827; /* 主背景色: gray-900 */
+            color: #e5e7eb; 
+        }
+
+        #revenueChart {
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+        }
+    </style>
+</head>
+<body class="antialiased selection:bg-gray-700 selection:text-white">
+
+    <div id="app" class="min-h-screen flex flex-col md:flex-row transition-all duration-300">
+        
+        <!-- 移动端遮罩层 -->
+        <div v-if="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 z-40 bg-gray-900/80 backdrop-blur-sm md:hidden"></div>
+
+        <!-- 侧边栏 (Sidebar) - 移除 md:static 使其始终固定 (fixed) -->
+        <aside 
+            :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+            class="fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 border-r border-gray-800 transition-transform duration-300 flex flex-col h-screen"
+        >
+            <!-- Logo -->
+            <div class="h-16 flex items-center px-6 border-b border-gray-800">
+                <div class="flex items-center gap-2 text-white font-bold text-xl tracking-tight">
+                    <div class="bg-white text-gray-900 p-1 rounded">
+                        <i class="ph-bold ph-chart-polar text-xl"></i>
+                    </div>
+                    <span>DashBoard</span>
+                </div>
+            </div>
+
+            <!-- 导航菜单 - flex-1 占据剩余空间并允许滚动 -->
+            <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+                <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">概览</p>
+                
+                <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md bg-gray-800 text-white group relative overflow-hidden border border-gray-700/50">
+                    <div class="absolute inset-y-0 left-0 w-1 bg-white rounded-r-full"></div>
+                    <i class="ph ph-squares-four text-lg"></i>
+                    仪表盘
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors">
+                    <i class="ph ph-chart-line-up text-lg"></i>
+                    分析报告
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors">
+                    <i class="ph ph-users text-lg"></i>
+                    用户管理
+                </a>
+                <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors">
+                    <i class="ph ph-shopping-cart text-lg"></i>
+                    订单中心
+                </a>
+
+                <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mt-6 mb-2">设置</p>
+                <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md text-gray-400 hover:bg-gray-800 hover:text-gray-200 transition-colors">
+                    <i class="ph ph-gear text-lg"></i>
+                    系统配置
+                </a>
+            </nav>
+
+            <!-- 底部用户栏 - 固定在侧边栏底部，不会随导航滚动 -->
+            <div class="p-4 border-t border-gray-800">
+                <div class="flex items-center gap-3">
+                    <img class="h-9 w-9 rounded-full bg-gray-700 grayscale" src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="User avatar">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-white truncate">管理员</p>
+                        <p class="text-xs text-gray-500 truncate">admin@dashboard.com</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区域 - 添加 md:ml-64 避免与固定侧边栏重叠 -->
+        <main class="flex-1 flex flex-col min-w-0 bg-gray-900 overflow-hidden md:ml-64">
+            
+            <!-- 顶部栏 (Header) -->
+            <header class="h-16 flex items-center justify-between px-4 sm:px-6 lg:px-8 bg-gray-900/50 backdrop-blur border-b border-gray-800 sticky top-0 z-30">
+                <div class="flex items-center gap-4">
+                    <button @click="sidebarOpen = !sidebarOpen" class="md:hidden p-2 -ml-2 text-gray-400 hover:text-white">
+                        <i class="ph ph-list text-2xl"></i>
+                    </button>
+                    <!-- 面包屑 -->
+                    <div class="hidden sm:flex items-center text-sm text-gray-500">
+                        <span>主页</span>
+                        <i class="ph ph-caret-right mx-2 text-xs"></i>
+                        <span class="text-white">数据概览</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- 搜索框 -->
+                    <div class="relative hidden md:block">
+                        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"></i>
+                        <input type="text" placeholder="全局搜索..." class="h-9 w-64 bg-gray-800 border-none rounded-md pl-9 pr-4 text-sm text-white placeholder-gray-500 focus:ring-1 focus:ring-gray-500 focus:bg-gray-900 transition-all outline-none">
+                    </div>
+                    
+                    <button class="relative p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-800">
+                        <i class="ph ph-bell text-xl"></i>
+                        <!-- 通知红点 -->
+                        <span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500/80 ring-2 ring-gray-900"></span>
+                    </button>
+                    <button class="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-800">
+                        <i class="ph ph-github-logo text-xl"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- 滚动内容区 -->
+            <div class="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+                
+                <!-- 欢迎语 -->
+                <div class="mb-8 flex items-end justify-between">
+                    <div>
+                        <h1 class="text-2xl font-bold text-white">早安，管理员</h1>
+                        <p class="text-gray-400 mt-1">DashBoard 数据总览</p>
+                    </div>
+                    <div class="hidden sm:flex gap-2">
+                         <button class="px-3 py-1.5 text-sm font-medium text-gray-300 bg-gray-800 rounded-md hover:bg-gray-700 transition border border-gray-700">导出报表</button>
+                        <!-- 按钮改为白色/浅灰强调 -->
+                        <button class="px-3 py-1.5 text-sm font-medium text-gray-900 bg-white rounded-md hover:bg-gray-200 transition shadow-lg shadow-white/5">新建项目</button>
+                    </div>
+                </div>
+
+                <!-- 1. 关键指标卡片 (Stats Grid) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div v-for="(stat, index) in stats" :key="index" class="bg-gray-900 border border-gray-800 rounded-lg p-5 hover:border-gray-600 transition-colors group">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2 text-gray-400 font-medium text-sm group-hover:text-gray-200 transition-colors">
+                                <i :class="['ph', stat.icon, 'text-lg']"></i>
+                                {{ stat.label }}
+                            </div>
+                            <span :class="stat.trend > 0 ? 'text-emerald-400' : 'text-rose-400'" class="text-xs font-medium flex items-center bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700">
+                                <i :class="stat.trend > 0 ? 'ph-trend-up' : 'ph-trend-down'" class="mr-1"></i>
+                                {{ Math.abs(stat.trend) }}%
+                            </span>
+                        </div>
+                        <div class="text-2xl font-bold text-white">{{ stat.value }}</div>
+                        <!-- 移除底部的“较上月 xxx”文字描述 -->
+                    </div>
+                </div>
+
+                <!-- 2. 图表与列表 (Chart & List) -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    
+                    <!-- 主图表 (Revenue Chart) -->
+                    <div class="lg:col-span-2 bg-gray-900 border border-gray-800 rounded-lg p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <!-- 标题更新为订单量趋势 -->
+                            <h3 class="text-lg font-semibold text-white">订单量趋势</h3>
+                            <select class="bg-gray-800 border border-gray-700 text-xs text-gray-300 rounded px-2 py-1 outline-none focus:border-gray-500">
+                                <option>近 7 天</option>
+                                <option>近 30 天</option>
+                                <option>今年</option>
+                            </select>
+                        </div>
+                        <div class="h-72 w-full">
+                            <canvas id="revenueChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- 最近活动 (Recent Activity) -->
+                    <div class="bg-gray-900 border border-gray-800 rounded-lg p-6 flex flex-col">
+                        <h3 class="text-lg font-semibold text-white mb-4">最新动态</h3>
+                        <div class="flex-1 overflow-y-auto pr-1 space-y-5">
+                            <div v-for="(item, i) in activities" :key="i" class="flex gap-3">
+                                <div class="mt-1 relative">
+                                    <!-- 时间轴点改为中性灰 -->
+                                    <div class="h-2 w-2 rounded-full bg-gray-500 ring-4 ring-gray-800"></div>
+                                    <div v-if="i !== activities.length - 1" class="absolute top-3 left-1 h-full w-px bg-gray-800"></div>
+                                </div>
+                                <div>
+                                    <p class="text-sm text-gray-300">
+                                        <span class="font-medium text-white">{{ item.user }}</span> {{ item.action }}
+                                        <span class="text-gray-400">{{ item.target }}</span>
+                                    </p>
+                                    <p class="text-xs text-gray-600 mt-0.5">{{ item.time }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="w-full mt-4 py-2 text-sm text-gray-400 hover:text-white border border-gray-800 rounded-md hover:bg-gray-800 transition">查看全部</button>
+                    </div>
+                </div>
+
+                <!-- 3. 数据表格 (Data Table) -->
+                <div class="mt-8 bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+                    <div class="p-6 border-b border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <h3 class="text-lg font-semibold text-white">最新订单</h3>
+                        <div class="flex gap-2">
+                             <input type="text" placeholder="搜索订单..." class="h-8 bg-gray-800 border border-gray-700 rounded-md px-3 text-xs text-white focus:border-gray-500 outline-none">
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-gray-800 text-xs text-gray-400 uppercase tracking-wider bg-gray-900/50">
+                                    <th class="px-6 py-3 font-medium">订单编号</th>
+                                    <th class="px-6 py-3 font-medium">客户</th>
+                                    <th class="px-6 py-3 font-medium">产品/服务</th>
+                                    <th class="px-6 py-3 font-medium">金额</th>
+                                    <th class="px-6 py-3 font-medium">状态</th>
+                                    <th class="px-6 py-3 font-medium text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-800 text-sm">
+                                <tr v-for="order in orders" :key="order.id" class="hover:bg-gray-800/50 transition-colors">
+                                    <td class="px-6 py-4 font-mono text-gray-500">#{{ order.id }}</td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <div class="h-6 w-6 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center text-xs font-bold text-gray-300">
+                                                <!-- 只显示姓氏首字母 -->
+                                                {{ order.customer.charAt(0) }}
+                                            </div>
+                                            <span class="text-gray-200">{{ order.customer }}</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-gray-400">{{ order.product }}</td>
+                                    <td class="px-6 py-4 text-white font-medium">¥{{ order.amount }}</td>
+                                    <td class="px-6 py-4">
+                                        <!-- 状态徽章：保持颜色区分，但降低饱和度 -->
+                                        <span 
+                                            class="inline-flex items-center px-2 py-1 rounded text-xs font-medium ring-1 ring-inset"
+                                            :class="{
+                                                'bg-emerald-500/10 text-emerald-400 ring-emerald-500/20': order.status === 'Completed',
+                                                'bg-yellow-500/10 text-yellow-400 ring-yellow-500/20': order.status === 'Pending',
+                                                'bg-red-500/10 text-red-400 ring-red-500/20': order.status === 'Cancelled'
+                                            }"
+                                        >
+                                            <span class="w-1.5 h-1.5 rounded-full mr-1.5" :class="{
+                                                'bg-emerald-400': order.status === 'Completed',
+                                                'bg-yellow-400': order.status === 'Pending',
+                                                'bg-red-400': order.status === 'Cancelled'
+                                            }"></span>
+                                            {{ order.statusText }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right">
+                                        <button class="text-gray-400 hover:text-white transition-colors">
+                                            <i class="ph-bold ph-dots-three-vertical"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- 分页更新为15条数据 -->
+                    <div class="px-6 py-3 border-t border-gray-800 flex items-center justify-between">
+                        <span class="text-xs text-gray-500">显示 1 到 15 条，共 35 条</span>
+                        <div class="flex gap-1">
+                            <button class="p-1 text-gray-500 hover:text-white disabled:opacity-50"><i class="ph ph-caret-left"></i></button>
+                            <button class="p-1 text-gray-500 hover:text-white"><i class="ph ph-caret-right"></i></button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, nextTick } = Vue;
+
+        createApp({
+            setup() {
+                const sidebarOpen = ref(false);
+
+                // KPI 数据 (已在上次更新中修改)
+                const stats = ref([
+                    // 1. 总收入 -> 总接受订单, ¥128,430 -> 1,673
+                    { label: '总接受订单', value: '1,673', trend: 12.5, subtext: '增加', icon: 'ph-currency-yen' },
+                    { label: '活跃用户', value: '2,845', trend: 8.2, subtext: '增加', icon: 'ph-users' },
+                    { label: '新订单', value: '432', trend: -2.4, subtext: '减少', icon: 'ph-shopping-bag' },
+                    // 4. 跳出率 -> 订单响应率, 24.5% -> 86.1%
+                    { label: '订单响应率', value: '86.1%', trend: 1.2, subtext: '优化', icon: 'ph-activity' }
+                ]);
+
+                // 最近动态 - 已更新
+                const activities = ref([
+                    { user: '李建国', action: '提交了订单', target: '理发预约', time: '2 分钟前' },
+                    { user: '王桂芳', action: '提交了请求', target: '查询绑定用户位置', time: '15 分钟前' },
+                    { user: '张秀英', action: '提交了订单', target: '居家医生问诊', time: '19 分钟前' },
+                    { user: '系统', action: '完成了', target: '服务器备份', time: '1 小时前' },
+                ]);
+
+                // 订单数据 (社区养老场景，15条) - 客户名称已更新
+                const orders = ref([
+                    { id: '1001', customer: '李建国', product: '上门助浴', amount: '120.00', status: 'Completed', statusText: '已完成' },
+                    { id: '1002', customer: '王桂芳', product: '代购药品', amount: '55.00', status: 'Pending', statusText: '待分配' },
+                    { id: '1003', customer: '张德华', product: '日间照料', amount: '80.00', status: 'Completed', statusText: '已完成' },
+                    { id: '1004', customer: '刘秀英', product: '陪同就医', amount: '280.00', status: 'Completed', statusText: '已完成' },
+                    { id: '1005', customer: '陈志强', product: '康复训练', amount: '350.00', status: 'Pending', statusText: '待分配' },
+                    { id: '1006', customer: '王永福', product: '营养配餐', amount: '75.00', status: 'Completed', statusText: '已完成' },
+                    { id: '1007', customer: '李丽华', product: '家政清洁', amount: '90.00', status: 'Pending', statusText: '待分配' },
+                    { id: '1008', customer: '张淑珍', product: '紧急呼叫响应', amount: '0.00', status: 'Cancelled', statusText: '已取消' },
+                    { id: '1009', customer: '刘伟明', product: '心理慰藉', amount: '150.00', status: 'Completed', statusText: '已完成' },
+                    { id: '1010', customer: '陈玉兰', product: '上门助浴', amount: '120.00', status: 'Completed', statusText: '已完成' },
+                    { id: '1011', customer: '王建国', product: '代购药品', amount: '45.00', status: 'Pending', statusText: '待分配' },
+                    { id: '1012', customer: '李德华', product: '日间照料', amount: '80.00', status: 'Pending', statusText: '待分配' },
+                    { id: '1013', customer: '张秀英', product: '陪同就医', amount: '280.00', status: 'Completed', statusText: '已完成' },
+                    { id: '1014', customer: '刘桂芳', product: '康复训练', amount: '350.00', status: 'Completed', statusText: '已完成' },
+                    { id: '1015', customer: '陈永福', product: '营养配餐', amount: '75.00', status: 'Cancelled', statusText: '已取消' },
+                ]);
+
+                onMounted(() => {
+                    nextTick(() => {
+                        const canvas = document.getElementById('revenueChart');
+                        if (!canvas) return;
+
+                        const ctx = canvas.getContext('2d');
+                        if (!ctx) return;
+                        
+                        // 中性风渐变：白色/银色
+                        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+                        gradient.addColorStop(0, 'rgba(255, 255, 255, 0.2)'); 
+                        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+                                datasets: [{
+                                    // 标签更新为订单量
+                                    label: '订单量 (个)',
+                                    // 数据更新，总计约1673
+                                    data: [200, 250, 220, 300, 280, 240, 183], 
+                                    borderColor: '#e5e7eb', // Zinc 200 (浅灰/白)
+                                    backgroundColor: gradient,
+                                    borderWidth: 2,
+                                    pointBackgroundColor: '#ffffff',
+                                    pointBorderColor: '#18181b', // Dark background color
+                                    pointBorderWidth: 2,
+                                    pointRadius: 4,
+                                    pointHoverRadius: 6,
+                                    fill: true,
+                                    tension: 0.4
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        backgroundColor: '#27272a', // Zinc 800
+                                        titleColor: '#f4f4f5',
+                                        bodyColor: '#d4d4d8',
+                                        borderColor: '#3f3f46',
+                                        borderWidth: 1,
+                                        padding: 10,
+                                        displayColors: false,
+                                        cornerRadius: 4,
+                                    }
+                                },
+                                scales: {
+                                    y: {
+                                        grid: { color: '#27272a', borderDash: [5, 5] }, // Zinc 800
+                                        // 移除货币符号，显示纯数值
+                                        ticks: { color: '#71717a', callback: (value) => value } 
+                                    },
+                                    x: {
+                                        grid: { display: false },
+                                        ticks: { color: '#71717a' }
+                                    }
+                                },
+                                interaction: {
+                                    intersect: false,
+                                    mode: 'index',
+                                },
+                            }
+                        });
+                    });
+                });
+
+                return {
+                    sidebarOpen,
+                    stats,
+                    activities,
+                    orders
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
